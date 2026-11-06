@@ -1,0 +1,66 @@
+#!/bin/sh
+# Build a patched Jetson TK1 device tree for each installed kernel.
+# This runs before zz-u-boot-menu, which points the boot menu at the
+# result through U_BOOT_FDT_DIR and U_BOOT_FDT in /etc/default/u-boot.
+set -e
+version="$1"
+src="/usr/lib/linux-image-${version}/tegra124-jetson-tk1.dtb"
+dst="/boot/dtbs/${version}/tegra124-jetson-tk1.dtb"
+overlay="/etc/tk1/tk1-display.dtbo"
+[ -f "$src" ] || exit 0
+mkdir -p "$(dirname "$dst")"
+
+# Apply the overlay, which disables display controller B and the VIC
+# (so HDMI can come up) and the analog sound device (unsupported).
+if [ -f "$overlay" ]; then
+	fdtoverlay -i "$src" -o "$dst" "$overlay"
+else
+	echo "50-tk1-dtb: $overlay missing, using stock device tree" >&2
+	cp "$src" "$dst"
+fi
+
+# Add staircase CPU throttling: passive trips mapped to cpufreq, each
+# with a minimum throttling state that sensor noise cannot undo.
+# Format is temperature-in-C:minimum-state.
+STEPS="80:0 85:3 90:7 95:12"
+
+add_cpu_cooling() {
+	dtb="$1"
+	z=/thermal-zones/cpu-thermal
+	cpu_ph=$(fdtget -t u "$dtb" /cpus/cpu@0 phandle) || return 1
+	max_ph=$(dtc -I dtb -O dts "$dtb" 2>/dev/null | sed -n 's/.*phandle = <\(0x[0-9a-f]*\)>.*/\1/p' | while read h; do printf '%d\n' "$h"; done | sort -n | tail -1)
+	[ -n "$cpu_ph" ] && [ -n "$max_ph" ] || return 1
+	cpu_hex=$(printf %x "$cpu_ph")
+	fdtput -t u "$dtb" /cpus/cpu@0 '#cooling-cells' 2 || return 1
+	ph=$max_ph
+	for step in $STEPS; do
+		temp=${step%:*}
+		floor=${step#*:}
+		ph=$((ph + 1))
+		trip=$z/trips/cpu-passive-$temp
+		map=$z/cooling-maps/map-passive-$temp
+		fdtput -c "$dtb" $trip &&
+		fdtput -t u "$dtb" $trip temperature $((temp * 1000)) &&
+		fdtput -t u "$dtb" $trip hysteresis 2000 &&
+		fdtput -t s "$dtb" $trip type passive &&
+		fdtput -t u "$dtb" $trip phandle $ph &&
+		fdtput -c "$dtb" $map &&
+		fdtput -t u "$dtb" $map trip $ph &&
+		fdtput -t x "$dtb" $map cooling-device $cpu_hex $(printf %x $floor) ffffffff || return 1
+	done
+}
+
+tmp="${dst}.tmp"
+cp "$dst" "$tmp"
+if add_cpu_cooling "$tmp"; then
+	mv "$tmp" "$dst"
+else
+	rm -f "$tmp"
+	echo "50-tk1-dtb: could not add CPU cooling, keeping overlay-only device tree" >&2
+fi
+
+# Allow the kernel to switch off the GPU power rail when nouveau is not
+# used. Delete /etc/tk1/gpu-rail-off and rerun this hook to restore.
+if [ -f /etc/tk1/gpu-rail-off ]; then
+	fdtput -d "$dst" /i2c@7000d000/pmic@40/regulators/sd6 regulator-always-on || echo "50-tk1-dtb: could not clear GPU rail always-on" >&2
+fi
