@@ -1,0 +1,27 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	/* Display controller B and VIC fail IOMMU setup and block HDMI. */
+	fragment@0 {
+		target-path = "/host1x@50000000/dc@54240000";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+	fragment@1 {
+		target-path = "/host1x@50000000/vic@54340000";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+	/* Analog audio cannot work: Debian's kernel lacks the Tegra30
+	   AHUB and I2S drivers. Remove this fragment if a future kernel
+	   enables CONFIG_SND_SOC_TEGRA30_AHUB and CONFIG_SND_SOC_TEGRA30_I2S. */
+	fragment@2 {
+		target-path = "/sound";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
