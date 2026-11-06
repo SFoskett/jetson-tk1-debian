@@ -1,0 +1,3 @@
+# The Tegra eMMC driver is a module and is not always included
+# automatically, so the root filesystem cannot be found without it.
+sdhci-tegra

@@ -1,0 +1,1 @@
+LABEL=tk1root / ext4 defaults,noatime,errors=remount-ro 0 1
