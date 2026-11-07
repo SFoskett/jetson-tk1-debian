@@ -42,6 +42,7 @@ mkdir -p "$work"
 mmdebstrap \
 	--mode=root \
 	--architectures=armhf \
+	--keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
 	--include="$(IFS=,; echo "${packages[*]}")" \
 	--customize-hook="$here/customize.sh \"\$1\"" \
 	"$suite" "$rootfs" \
