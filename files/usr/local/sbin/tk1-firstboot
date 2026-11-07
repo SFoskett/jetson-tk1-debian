@@ -1,0 +1,38 @@
+#!/bin/sh
+# One-time setup when a Jetson TK1 first boots from the shared image.
+# SSH host keys and the machine ID are created by Debian's own services.
+set -u
+stamp=/var/lib/tk1/firstboot-done
+[ -e "$stamp" ] && exit 0
+
+# Name the board after its onboard Ethernet port, which carries NVIDIA's
+# 00:04:4b MAC prefix, using the last two bytes (for example tk1-8e54).
+# Matching the prefix avoids depending on interface names, which change
+# when a mini-PCIe card is installed. Wait briefly for the driver.
+mac=""
+i=0
+while [ -z "$mac" ] && [ $i -lt 30 ]; do
+	for f in /sys/class/net/*/address; do
+		a=$(cat "$f")
+		case "$a" in 00:04:4b:*) mac=$a ;; esac
+	done
+	if [ -z "$mac" ]; then
+		sleep 1
+		i=$((i + 1))
+	fi
+done
+if [ -n "$mac" ]; then
+	name="tk1-$(echo "$mac" | cut -d: -f5,6 | tr -d :)"
+else
+	name="tk1"
+	echo "tk1-firstboot: onboard Ethernet not found, using hostname $name" >&2
+fi
+echo "$name" > /etc/hostname
+hostname "$name"
+sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$name/" /etc/hosts
+
+# Grow the root filesystem to fill its partition.
+resize2fs "$(findmnt -no SOURCE /)" || echo "tk1-firstboot: could not grow the root filesystem" >&2
+
+mkdir -p "$(dirname "$stamp")"
+touch "$stamp"

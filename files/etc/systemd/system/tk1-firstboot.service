@@ -1,0 +1,16 @@
+[Unit]
+Description=One-time setup for a new Jetson TK1
+DefaultDependencies=no
+After=local-fs.target systemd-udev-trigger.service
+Before=sysinit.target network-pre.target systemd-networkd.service ssh.service
+Wants=network-pre.target
+Conflicts=shutdown.target
+ConditionPathExists=!/var/lib/tk1/firstboot-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/tk1-firstboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
