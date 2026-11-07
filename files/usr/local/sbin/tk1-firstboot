@@ -31,6 +31,10 @@ echo "$name" > /etc/hostname
 hostname "$name"
 sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$name/" /etc/hosts
 
+# Create any missing SSH host keys. Debian's own key generator normally
+# does this on the first boot, so this is only a fallback.
+ssh-keygen -A || echo "tk1-firstboot: could not create SSH host keys" >&2
+
 # Grow the root filesystem to fill its partition.
 resize2fs "$(findmnt -no SOURCE /)" || echo "tk1-firstboot: could not grow the root filesystem" >&2
 
