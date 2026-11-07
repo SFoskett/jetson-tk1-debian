@@ -32,4 +32,12 @@ for v in "$root"/lib/modules/*; do
 done
 run u-boot-update
 
+# Save the build time where systemd looks for the last known time, so a
+# first boot without network starts with the clock at the build date.
+run mkdir -p /var/lib/systemd/timesync
+run touch /var/lib/systemd/timesync/clock
+if run getent passwd systemd-timesync > /dev/null; then
+	run chown -R systemd-timesync:systemd-timesync /var/lib/systemd/timesync
+fi
+
 run apt-get clean

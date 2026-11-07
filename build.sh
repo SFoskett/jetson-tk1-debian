@@ -33,8 +33,17 @@ packages=(
 	systemd-timesyncd
 	ca-certificates
 	zstd
+	wireless-regdb
 )
 
+# Refuse to delete a work directory that still has filesystems mounted
+# inside it, which an interrupted build can leave behind. Deleting it then
+# would reach into the host's /proc, /sys or /dev.
+if findmnt -rn -o TARGET | grep -q "^$work/"; then
+	echo "build.sh: filesystems are still mounted under $work" >&2
+	echo "build.sh: unmount them first, for example: umount -R $rootfs" >&2
+	exit 1
+fi
 rm -rf "$work"
 mkdir -p "$work"
 
@@ -57,14 +66,23 @@ echo tk1 > "$rootfs/etc/hostname"
 printf '127.0.0.1\tlocalhost\n127.0.1.1\ttk1\n::1\t\tlocalhost ip6-localhost ip6-loopback\n' > "$rootfs/etc/hosts"
 ln -sf ../run/systemd/resolve/stub-resolv.conf "$rootfs/etc/resolv.conf"
 rm -f "$rootfs"/etc/ssh/ssh_host_*
-: > "$rootfs/etc/machine-id"
+echo uninitialized > "$rootfs/etc/machine-id"
 rm -f "$rootfs/var/lib/dbus/machine-id"
 
-# Make the filesystem image with some free space; first boot grows it.
+# Make the filesystem image, then shrink it to its minimum size plus a
+# small margin for the first boot. The first boot grows it to fill the
+# partition, so a smaller image only makes flashing faster.
 size_mb=$(( $(du -sm "$rootfs" | cut -f1) * 13 / 10 + 256 ))
 rm -f "$img" "$img.zst"
 mkfs.ext4 -q -L tk1root -d "$rootfs" "$img" "${size_mb}M"
 e2fsck -f -p "$img"
+resize2fs -M "$img"
+bs=$(dumpe2fs -h "$img" 2>/dev/null | awk -F: '/^Block size/ {gsub(/ /, "", $2); print $2}')
+blocks=$(dumpe2fs -h "$img" 2>/dev/null | awk -F: '/^Block count/ {gsub(/ /, "", $2); print $2}')
+truncate -s $(( (blocks + 64 * 1024 * 1024 / bs) * bs )) "$img"
+resize2fs "$img"
+e2fsck -f -p "$img"
+size_mb=$(( $(stat -c %s "$img") / 1024 / 1024 ))
 
 zstd -T0 -q --rm "$img"
 (cd "$here/output" && sha256sum "$(basename "$img").zst" > "$(basename "$img").zst.sha256")
