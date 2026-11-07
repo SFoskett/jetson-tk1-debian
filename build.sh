@@ -32,6 +32,7 @@ packages=(
 	systemd-resolved
 	systemd-timesyncd
 	ca-certificates
+	zstd
 )
 
 rm -rf "$work"
