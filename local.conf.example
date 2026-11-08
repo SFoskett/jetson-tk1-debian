@@ -14,3 +14,7 @@ TK1_PASSWORD_HASH=''
 # Full path to a file of SSH public keys (authorized_keys format). With a
 # key, SSH accepts keys only. Use a full path, since build.sh runs as root.
 TK1_SSH_KEYS=''
+
+# Time zone for the board, which also sets when automatic reboots for
+# updates happen (04:00 local time). Defaults to UTC.
+TK1_TIMEZONE=UTC

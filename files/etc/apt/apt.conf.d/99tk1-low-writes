@@ -1,0 +1,5 @@
+// Reduce eMMC writes from apt's daily package list refresh: keep the
+// lists compressed and skip the package description translations.
+Acquire::GzipIndexes "true";
+Acquire::CompressionTypes::Order:: "gz";
+Acquire::Languages "none";

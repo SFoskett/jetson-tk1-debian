@@ -26,11 +26,16 @@ export LC_ALL=C.UTF-8
 TK1_USER=tk1
 TK1_PASSWORD_HASH=""
 TK1_SSH_KEYS=""
+TK1_TIMEZONE=UTC
 if [ -f "$here/local.conf" ]; then
 	. "$here/local.conf"
 fi
 if ! [[ "$TK1_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
 	echo "build.sh: TK1_USER '$TK1_USER' is not a valid username" >&2
+	exit 1
+fi
+if [ -d /usr/share/zoneinfo ] && [ ! -f "/usr/share/zoneinfo/$TK1_TIMEZONE" ]; then
+	echo "build.sh: TK1_TIMEZONE '$TK1_TIMEZONE' is not a known time zone, for example America/New_York" >&2
 	exit 1
 fi
 if [ -n "$TK1_SSH_KEYS" ] && [ ! -f "$TK1_SSH_KEYS" ]; then
@@ -53,6 +58,7 @@ packages=(
 	zstd
 	wireless-regdb
 	nftables
+	unattended-upgrades
 )
 
 # Refuse to delete a work directory that still has filesystems mounted
@@ -70,6 +76,7 @@ mkdir -p "$work"
 {
 	printf 'TK1_USER=%q\n' "$TK1_USER"
 	printf 'TK1_PASSWORD_HASH=%q\n' "$TK1_PASSWORD_HASH"
+	printf 'TK1_TIMEZONE=%q\n' "$TK1_TIMEZONE"
 } > "$work/user.conf"
 if [ -n "$TK1_SSH_KEYS" ]; then
 	cp "$TK1_SSH_KEYS" "$work/authorized_keys"

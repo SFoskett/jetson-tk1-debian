@@ -29,6 +29,14 @@ else
 fi
 run passwd -l root
 
+# Time zone, which also sets when automatic reboots happen.
+if [ ! -f "$root/usr/share/zoneinfo/$TK1_TIMEZONE" ]; then
+	echo "customize.sh: unknown time zone $TK1_TIMEZONE" >&2
+	exit 1
+fi
+ln -sf "/usr/share/zoneinfo/$TK1_TIMEZONE" "$root/etc/localtime"
+echo "$TK1_TIMEZONE" > "$root/etc/timezone"
+
 if [ -f "$keys" ]; then
 	# With an SSH key, SSH accepts keys only.
 	install -d -m 700 "$root/home/$TK1_USER/.ssh"

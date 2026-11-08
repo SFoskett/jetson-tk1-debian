@@ -1,0 +1,5 @@
+// Reboot automatically at 04:00 local time when an update requires it,
+// such as a new kernel. This overrides 50unattended-upgrades, since apt
+// reads these files in alphabetical order.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:00";
