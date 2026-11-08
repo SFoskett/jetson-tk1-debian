@@ -1,0 +1,6 @@
+[Unit]
+Description=Enable SSH once the default password is changed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/tk1-ssh-gate

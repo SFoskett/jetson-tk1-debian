@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for the default password to be changed
+ConditionPathExists=!/var/lib/tk1/ssh-enabled
+
+[Path]
+PathChanged=/etc/shadow
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+# Personal settings for the default user. Copy this file to local.conf,
+# which git ignores, and edit it. Images built with these settings contain
+# your public key and password hash, so do not share them publicly.
+
+# Username for the default account (sudo access, root stays locked).
+TK1_USER=tk1
+
+# Password hash for the default account. Create one with:
+#   openssl passwd -6
+# Leave empty to use the default password tk1, which must be changed at
+# the first login. Use single quotes, since the hash contains $ signs.
+TK1_PASSWORD_HASH=''
+
+# Full path to a file of SSH public keys (authorized_keys format). With a
+# key, SSH accepts keys only. Use a full path, since build.sh runs as root.
+TK1_SSH_KEYS=''

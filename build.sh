@@ -20,6 +20,24 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 export LC_ALL=C.UTF-8
 
+# Personal settings for the default user, from local.conf if it exists.
+# See local.conf.example. Without it, the image uses tk1/tk1 with SSH off
+# until that password is changed at the console.
+TK1_USER=tk1
+TK1_PASSWORD_HASH=""
+TK1_SSH_KEYS=""
+if [ -f "$here/local.conf" ]; then
+	. "$here/local.conf"
+fi
+if ! [[ "$TK1_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+	echo "build.sh: TK1_USER '$TK1_USER' is not a valid username" >&2
+	exit 1
+fi
+if [ -n "$TK1_SSH_KEYS" ] && [ ! -f "$TK1_SSH_KEYS" ]; then
+	echo "build.sh: TK1_SSH_KEYS file '$TK1_SSH_KEYS' not found (use a full path, since ~ means root's home under sudo)" >&2
+	exit 1
+fi
+
 packages=(
 	linux-image-armmp
 	initramfs-tools
@@ -46,6 +64,15 @@ if findmnt -rn -o TARGET | grep -q "^$work/"; then
 fi
 rm -rf "$work"
 mkdir -p "$work"
+
+# Hand the user settings to the customize hook.
+{
+	printf 'TK1_USER=%q\n' "$TK1_USER"
+	printf 'TK1_PASSWORD_HASH=%q\n' "$TK1_PASSWORD_HASH"
+} > "$work/user.conf"
+if [ -n "$TK1_SSH_KEYS" ]; then
+	cp "$TK1_SSH_KEYS" "$work/authorized_keys"
+fi
 
 # Build the root filesystem. The customize hook runs inside the new
 # system, after all packages are installed, to apply the TK1 setup.

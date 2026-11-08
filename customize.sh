@@ -15,12 +15,39 @@ run apt-get purge -y ifupdown
 rm -f "$root/etc/network/interfaces"
 run systemctl enable systemd-networkd tk1-firstboot.service
 
-# Default login tk1/tk1, with the password expired so it must be changed
-# at the first login. The root account stays locked.
-run useradd -m -s /bin/bash -G sudo,adm tk1
-echo tk1:tk1 | run chpasswd
-run chage -d 0 tk1
+# Create the default user from the settings build.sh passed along.
+# A default password of tk1 is always expired, so it must be changed at
+# the first login. The root account stays locked.
+. "$here/output/work/user.conf"
+keys="$here/output/work/authorized_keys"
+run useradd -m -s /bin/bash -G sudo,adm "$TK1_USER"
+if [ -n "$TK1_PASSWORD_HASH" ]; then
+	run usermod -p "$TK1_PASSWORD_HASH" "$TK1_USER"
+else
+	echo "$TK1_USER:tk1" | run chpasswd
+	run chage -d 0 "$TK1_USER"
+fi
 run passwd -l root
+mkdir -p "$root/etc/tk1"
+echo "$TK1_USER" > "$root/etc/tk1/default-user"
+
+if [ -f "$keys" ]; then
+	# With an SSH key, SSH accepts keys only.
+	install -d -m 700 "$root/home/$TK1_USER/.ssh"
+	install -m 600 "$keys" "$root/home/$TK1_USER/.ssh/authorized_keys"
+	run chown -R "$TK1_USER:$TK1_USER" "/home/$TK1_USER/.ssh"
+	printf 'PasswordAuthentication no\n' > "$root/etc/ssh/sshd_config.d/10-tk1-auth.conf"
+elif [ -z "$TK1_PASSWORD_HASH" ]; then
+	# No key and the publicly known default password: keep SSH off until
+	# the password has been changed at the console.
+	cp -r --preserve=mode "$here/optional/ssh-gate/." "$root/"
+	run systemctl enable tk1-ssh-gate.path
+	cat >> "$root/etc/issue" <<ISSUE
+SSH is off until the default password is changed.
+Log in here as $TK1_USER with password tk1 to set a new one.
+
+ISSUE
+fi
 
 # Build the device tree overlay, then regenerate everything that depends
 # on the configuration files: the initramfs, the patched device tree for

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Start SSH once the default user's password is no longer expired. An
+# expired password has 0 as its last-changed date in /etc/shadow.
+set -eu
+user=$(cat /etc/tk1/default-user)
+lastchg=$(getent shadow "$user" | cut -d: -f3)
+if [ -z "$lastchg" ] || [ "$lastchg" = 0 ]; then
+	exit 0
+fi
+mkdir -p /var/lib/tk1
+touch /var/lib/tk1/ssh-enabled
+systemctl start ssh.service
+systemctl disable tk1-ssh-gate.path
