@@ -1,1 +1,4 @@
-LABEL=tk1root / ext4 defaults,noatime,errors=remount-ro 0 1
+# The root filesystem, found by its label. noatime and commit=60 reduce
+# writes to the eMMC: no access-time updates, and pending changes are
+# flushed every 60 seconds instead of every 5.
+LABEL=tk1root / ext4 defaults,noatime,commit=60,errors=remount-ro 0 1
