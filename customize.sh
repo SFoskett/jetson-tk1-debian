@@ -28,8 +28,6 @@ else
 	run chage -d 0 "$TK1_USER"
 fi
 run passwd -l root
-mkdir -p "$root/etc/tk1"
-echo "$TK1_USER" > "$root/etc/tk1/default-user"
 
 if [ -f "$keys" ]; then
 	# With an SSH key, SSH accepts keys only.
@@ -39,14 +37,17 @@ if [ -f "$keys" ]; then
 	printf 'PasswordAuthentication no\n' > "$root/etc/ssh/sshd_config.d/10-tk1-auth.conf"
 elif [ -z "$TK1_PASSWORD_HASH" ]; then
 	# No key and the publicly known default password: keep SSH off until
-	# the password has been changed at the console.
+	# the password has been changed at the console. The lockout removes
+	# itself completely once that happens.
 	cp -r --preserve=mode "$here/optional/ssh-gate/." "$root/"
-	run systemctl enable tk1-ssh-gate.path
-	cat >> "$root/etc/issue" <<ISSUE
+	echo "$TK1_USER" > "$root/etc/tk1/default-user"
+	mkdir -p "$root/etc/issue.d"
+	cat > "$root/etc/issue.d/tk1-ssh-gate.issue" <<ISSUE
 SSH is off until the default password is changed.
 Log in here as $TK1_USER with password tk1 to set a new one.
 
 ISSUE
+	run systemctl enable tk1-ssh-gate.path
 fi
 
 # Build the device tree overlay, then regenerate everything that depends
