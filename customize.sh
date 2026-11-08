@@ -13,7 +13,7 @@ cp -r --preserve=mode "$here/files/." "$root/"
 # systemd-networkd manages the network, so remove ifupdown.
 run apt-get purge -y ifupdown
 rm -f "$root/etc/network/interfaces"
-run systemctl enable systemd-networkd tk1-firstboot.service
+run systemctl enable systemd-networkd nftables tk1-firstboot.service
 
 # Create the default user from the settings build.sh passed along.
 # A default password of tk1 is always expired, so it must be changed at

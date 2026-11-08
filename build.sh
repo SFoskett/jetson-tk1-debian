@@ -52,6 +52,7 @@ packages=(
 	ca-certificates
 	zstd
 	wireless-regdb
+	nftables
 )
 
 # Refuse to delete a work directory that still has filesystems mounted
