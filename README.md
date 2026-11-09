@@ -149,3 +149,7 @@ The TK1 needs some changes to Debian's device tree: disabling display hardware t
 **The board does not appear in recovery mode.** Check that the cable is in the micro-USB port, try another cable (some are charge-only), and repeat the button sequence.
 
 **The board has a new IP address after reflashing.** Images built before the DHCP change identified the board by a per-install ID instead of its MAC address. Current images keep the same address across reflashes and work with MAC-based DHCP reservations.
+
+## License
+
+The scripts and configuration files in this repository are released under the MIT License; see `LICENSE`. The images they build contain Debian, the Linux kernel, U-Boot, and firmware, each under its own license.
