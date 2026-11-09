@@ -66,7 +66,8 @@ packages=(
 # would reach into the host's /proc, /sys or /dev.
 if findmnt -rn -o TARGET | grep -q "^$work/"; then
 	echo "build.sh: filesystems are still mounted under $work" >&2
-	echo "build.sh: unmount them first, for example: umount -R $rootfs" >&2
+	echo "build.sh: make sure no mmdebstrap is still running, then unmount them with:" >&2
+	echo "  findmnt -rn -o TARGET | grep '$rootfs' | sort -r | xargs -r umount" >&2
 	exit 1
 fi
 rm -rf "$work"
