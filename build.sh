@@ -130,11 +130,14 @@ e2fsck -f -p "$img"
 size_mb=$(( $(stat -c %s "$img") / 1024 / 1024 ))
 
 # Flashing files, built from the U-Boot the customize hook saved and the
-# boot configuration in flash/. flash-tk1.sh uses all three:
+# boot configuration in flash/:
 #   tk1.bct          memory and boot settings, sent to the board over USB
-#   u-boot-flash.bin U-Boot that exposes the eMMC to the computer over USB,
-#                    first boot0 and then the main storage, then resets
+#   u-boot-flash.bin U-Boot that resets the board's saved U-Boot settings,
+#                    exposes the eMMC to the computer over USB, first boot0
+#                    and then the main storage, and then resets the board
 #   boot0.img        BCT and U-Boot, written to the eMMC's boot0 area
+#   u-boot.bin       Debian's unmodified U-Boot, for the manual and L4T
+#                    installation methods in docs/
 fw="$here/output/flash"
 rm -rf "$fw"
 mkdir -p "$fw"
@@ -147,7 +150,9 @@ mv "$fw/$bctname.bct" "$fw/tk1.bct"
 # The flashing U-Boot is Debian's U-Boot with a changed boot command in its
 # device tree, which sits at the end of the file. U-Boot reads /config
 # bootcmd in place of its normal boot command, and load-environment 0 makes
-# it ignore any settings saved on the board.
+# it ignore any settings saved on the board. Its first step saves U-Boot's
+# default settings over any saved by an earlier U-Boot, in the eMMC's boot1
+# area, so leftover settings cannot interfere with the new install.
 python3 - "$fw/u-boot.bin" "$work" <<'PY'
 import sys
 data = open(sys.argv[1], 'rb').read()
@@ -158,13 +163,17 @@ if i < 0 or i + size != len(data):
 open(sys.argv[2] + '/uboot-head.bin', 'wb').write(data[:i])
 open(sys.argv[2] + '/uboot.dtb', 'wb').write(data[i:])
 PY
-fdtput -p -t s "$work/uboot.dtb" /config bootcmd "ums 0 mmc 0.1; ums 0 mmc 0; reset"
+fdtput -p -t s "$work/uboot.dtb" /config bootcmd "env default -a; env save; ums 0 mmc 0.1; ums 0 mmc 0; reset"
 fdtput -t i "$work/uboot.dtb" /config bootdelay 0
 fdtput -t i "$work/uboot.dtb" /config load-environment 0
 cat "$work/uboot-head.bin" "$work/uboot.dtb" > "$fw/u-boot-flash.bin"
-rm "$fw/u-boot.bin"
 
 zstd -T0 -q --rm "$img"
 (cd "$here/output" && sha256sum "$(basename "$img").zst" > "$(basename "$img").zst.sha256")
 rm -rf "$work"
+
+# The build runs as root, so give output/ back to the user who ran sudo.
+if [ -n "${SUDO_USER:-}" ]; then
+	chown -R "$SUDO_USER": "$here/output"
+fi
 echo "Built $img.zst (${size_mb}MB uncompressed)"
