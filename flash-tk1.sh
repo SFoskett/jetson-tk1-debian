@@ -21,7 +21,7 @@ for tool in tegrarcm lsusb lsblk sgdisk partprobe udevadm zstd eject dd; do
 	command -v "$tool" > /dev/null || die "$tool is missing; see the README for the packages to install"
 done
 
-img="${1:-$(ls -t "$here"/output/tk1-*.img.zst 2>/dev/null | head -1)}"
+img="${1:-$(ls -t "$here"/output/tk1-*.img.zst 2>/dev/null | head -1 || true)}"
 [ -n "$img" ] && [ -f "$img" ] || die "no image found; run build.sh first or give the image path"
 for f in tk1.bct u-boot-flash.bin boot0.img; do
 	[ -f "$fw/$f" ] || die "$fw/$f is missing; run build.sh first"
@@ -32,18 +32,25 @@ echo "Image: $img"
 # itself as U-Boot's mass storage device ("Linux UMS disk") is considered,
 # and its size must match what is expected, so no other disk is touched.
 find_ums_disk() {
-	local want="$1" name size tran vendor model
-	while read -r name size tran vendor model; do
+	local want="$1" line name size tran vendor model
+	local re='^NAME="([^"]*)" SIZE="([0-9]*)" TRAN="([^"]*)" VENDOR="([^"]*)" MODEL="([^"]*)"'
+	while read -r line; do
+		[[ $line =~ $re ]] || continue
+		name=${BASH_REMATCH[1]}
+		size=${BASH_REMATCH[2]}
+		tran=${BASH_REMATCH[3]}
+		vendor=${BASH_REMATCH[4]}
+		model=${BASH_REMATCH[5]}
 		[ "$tran" = usb ] || continue
-		[ "$vendor" = Linux ] || continue
+		case "$vendor" in Linux*) ;; *) continue ;; esac
 		case "$model" in "UMS disk"*) ;; *) continue ;; esac
 		if [ "$want" = boot0 ] && [ "$size" = "$boot0_size" ]; then
 			echo "$name"; return 0
 		fi
-		if [ "$want" = main ] && [ "$size" -gt $((1024 * 1024 * 1024)) ]; then
+		if [ "$want" = main ] && [ -n "$size" ] && [ "$size" -gt $((1024 * 1024 * 1024)) ]; then
 			echo "$name"; return 0
 		fi
-	done < <(lsblk -bdnp -o NAME,SIZE,TRAN,VENDOR,MODEL)
+	done < <(lsblk -bdnpP -o NAME,SIZE,TRAN,VENDOR,MODEL)
 	return 1
 }
 
