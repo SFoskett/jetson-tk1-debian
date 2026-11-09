@@ -3,3 +3,9 @@ Name=en*
 
 [Network]
 DHCP=yes
+
+# Identify the board to the DHCP server by its MAC address rather than an
+# ID derived from the machine ID, so it keeps the same address after being
+# reflashed and works with MAC-based DHCP reservations.
+[DHCPv4]
+ClientIdentifier=mac
