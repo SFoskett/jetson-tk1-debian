@@ -76,4 +76,9 @@ if run getent passwd systemd-timesync > /dev/null; then
 	run chown -R systemd-timesync:systemd-timesync /var/lib/systemd/timesync
 fi
 
+# Save the TK1's U-Boot for the flashing files, then remove the package,
+# which holds U-Boot builds for many boards and is not needed on the TK1.
+cp "$root/usr/lib/u-boot/jetson-tk1/u-boot-tegra.bin" "$here/output/work/u-boot-tegra.bin"
+run apt-get purge -y u-boot-tegra
+
 run apt-get clean

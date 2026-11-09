@@ -20,6 +20,14 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 export LC_ALL=C.UTF-8
 
+# Host tools needed for the build and for the flashing files.
+for tool in mmdebstrap cbootimage fdtput python3 zstd; do
+	if ! command -v "$tool" > /dev/null; then
+		echo "build.sh: $tool is missing; see the README for the packages to install" >&2
+		exit 1
+	fi
+done
+
 # Personal settings for the default user, from local.conf if it exists.
 # See local.conf.example. Without it, the image uses tk1/tk1 with SSH off
 # until that password is changed at the console.
@@ -59,6 +67,7 @@ packages=(
 	wireless-regdb
 	nftables
 	unattended-upgrades
+	u-boot-tegra
 )
 
 # Refuse to delete a work directory that still has filesystems mounted
@@ -119,6 +128,41 @@ truncate -s $(( (blocks + 64 * 1024 * 1024 / bs) * bs )) "$img"
 resize2fs "$img"
 e2fsck -f -p "$img"
 size_mb=$(( $(stat -c %s "$img") / 1024 / 1024 ))
+
+# Flashing files, built from the U-Boot the customize hook saved and the
+# boot configuration in flash/. flash-tk1.sh uses all three:
+#   tk1.bct          memory and boot settings, sent to the board over USB
+#   u-boot-flash.bin U-Boot that exposes the eMMC to the computer over USB,
+#                    first boot0 and then the main storage, then resets
+#   boot0.img        BCT and U-Boot, written to the eMMC's boot0 area
+fw="$here/output/flash"
+rm -rf "$fw"
+mkdir -p "$fw"
+bctname=PM375_Hynix_2GB_H5TC4G63AFR_RDA_924MHz
+cbootimage -gbct -t124 "$here/flash/$bctname.bct.cfg" "$fw/$bctname.bct"
+cp "$work/u-boot-tegra.bin" "$fw/u-boot.bin"
+(cd "$fw" && cbootimage -t124 "$here/flash/jetson-tk1-emmc.img.cfg" boot0.img)
+mv "$fw/$bctname.bct" "$fw/tk1.bct"
+
+# The flashing U-Boot is Debian's U-Boot with a changed boot command in its
+# device tree, which sits at the end of the file. U-Boot reads /config
+# bootcmd in place of its normal boot command, and load-environment 0 makes
+# it ignore any settings saved on the board.
+python3 - "$fw/u-boot.bin" "$work" <<'PY'
+import sys
+data = open(sys.argv[1], 'rb').read()
+i = data.rfind(b'\xd0\x0d\xfe\xed')
+size = int.from_bytes(data[i + 4:i + 8], 'big')
+if i < 0 or i + size != len(data):
+	sys.exit('build.sh: could not find the device tree at the end of U-Boot')
+open(sys.argv[2] + '/uboot-head.bin', 'wb').write(data[:i])
+open(sys.argv[2] + '/uboot.dtb', 'wb').write(data[i:])
+PY
+fdtput -p -t s "$work/uboot.dtb" /config bootcmd "ums 0 mmc 0.1; ums 0 mmc 0; reset"
+fdtput -t i "$work/uboot.dtb" /config bootdelay 0
+fdtput -t i "$work/uboot.dtb" /config load-environment 0
+cat "$work/uboot-head.bin" "$work/uboot.dtb" > "$fw/u-boot-flash.bin"
+rm "$fw/u-boot.bin"
 
 zstd -T0 -q --rm "$img"
 (cd "$here/output" && sha256sum "$(basename "$img").zst" > "$(basename "$img").zst.sha256")
