@@ -21,6 +21,74 @@ A few things are limited:
 - **The SD card slot runs in high-speed mode** (about 22 MB/s), since the Tegra124 driver does not offer the faster UHS modes.
 - **Memory runs at a fixed 924 MHz.** Dynamic memory scaling was tested and found unstable on these boards, so it is not enabled.
 
+## Good uses and limits
+
+The TK1 has four fast ARM cores, 2 GB of RAM, gigabit Ethernet, a SATA port, USB 3.0, a mini-PCIe slot that can take a second Ethernet port, a hardware watchdog, and a real serial port. It also has real limits, and they decide which jobs it suits.
+
+### What limits it
+
+- **The eMMC is old and fragile.** Anything that writes constantly, such as databases, metrics storage, log collection, or downloads, should write to a SATA drive instead. A hard drive is fine for most uses, since the CPU, not the drive, usually sets the speed.
+- **It is a 32-bit ARM (armhf) system.** Debian supports it fully, but outside Debian, 32-bit ARM support is shrinking. Home Assistant has dropped it, and many Docker images no longer offer armhf builds, so check before planning around a container.
+- **It has no AES instructions.** The Cortex-A15 predates ARM's encryption instructions, but its NEON vector unit makes ChaCha20 fast, so software that can use ChaCha20 runs far better than software that needs AES.
+- **Go programs encrypt slowly.** Go's ChaCha20 code has no optimized version for 32-bit ARM, so programs written in Go, including Tailscale, encrypt about five times slower per core than OpenSSL or the kernel.
+- **The GPU is not usable for computing.** Mainline Linux has no CUDA for this chip, and the open-source driver offers no practical compute on it.
+- **Sustained full load is throttled.** Without a fan, all four cores at full load settle at about 84°C and about 84% of peak speed. Short bursts run at full speed.
+- **There is one USB port.** Using a USB hub has not been tested yet.
+
+### Measured performance
+
+On one board, using one CPU core unless noted:
+
+| Task | Speed |
+|---|---|
+| ChaCha20-Poly1305, OpenSSL and the kernel | about 355 MB/s (2.8 Gbit/s) |
+| ChaCha20-Poly1305, Go (as used by Tailscale) | 65 MB/s per core, 260 MB/s on all four cores |
+| AES-128-GCM, OpenSSL | about 52 MB/s (420 Mbit/s) |
+| SHA-1 / SHA-256, OpenSSL | about 395 MB/s / 190 MB/s |
+| USB 3.0 disk read | about 131 MB/s |
+| SD card read | about 22 MB/s |
+
+The kernel's WireGuard uses the same NEON-optimized ChaCha20 as OpenSSL.
+
+### Good fits
+
+- **UPS monitoring with NUT**, sharing power status with the machines it protects.
+- **An SSH jump host.** The SSH settings keep local TCP forwarding on, so `ssh -J` works.
+- **A Tailscale peer relay.** A relay forwards traffic that is already encrypted end to end, so it never runs Go's slow encryption. It suits an always-on, wired board, and it needs a UDP port opened in the firewall and forwarded on your router.
+- **A WireGuard endpoint**, using the kernel's WireGuard, which encrypts with NEON.
+- **A serial console server**, with USB serial adapters and `ser2net` or `conserver`, giving remote console access to other machines.
+- **A DNS resolver or ad blocker**, such as Unbound or AdGuard Home, with query logging kept in RAM.
+- **A RIPE Atlas software probe**, which contributes to Internet measurement.
+- **A radio receiver**, such as an ADS-B or 978 MHz UAT feeder with an RTL-SDR, or an APRS iGate. Check that any container images you plan to use still offer armhf builds.
+
+### Fits with a SATA drive
+
+- **A torrent client**, such as qBittorrent-nox or Transmission. Keep the downloads and also the client's settings, resume data, and logs on the drive, so nothing touches the eMMC, and turn on preallocation to keep files contiguous. Hashing is fast enough for gigabit speeds, so the number of peers and the drive set the limit.
+- **A backup target or small file server**, with rsync, restic, or Samba.
+- **A log collector or honeypot**, with the logs on the drive.
+
+The SATA power header supplies 5 V and 12 V. A 2.5-inch drive needs only 5 V; a 3.5-inch drive also needs 12 V, so check that the power supply has headroom for its spin-up.
+
+### Fits with a second Ethernet port
+
+A mini-PCIe Ethernet card adds a second port, which makes the board usable as a small router or firewall for a lab or guest network, or as a network monitor. Adding a card changes the onboard port's name (for example from `enp1s0` to `enp2s0`), so configure services by MAC address rather than interface name.
+
+### Poor fits
+
+- **A Tailscale exit node or subnet router at high speed.** The board must encrypt everything it routes, using Go's slow encryption. It is fine for moderate traffic, but for near-gigabit routing, use the kernel's WireGuard instead.
+- **Serving a lot of TLS with AES**, which is about seven times slower than ChaCha20 here.
+- **Anything write-heavy on the eMMC**, such as databases or metrics storage.
+- **GPU computing, Home Assistant, and Kubernetes**, because of the missing GPU support, the dropped 32-bit support, and the 2 GB of RAM.
+
+### Running Tailscale
+
+Tailscale publishes Debian packages for armhf. Install it from Tailscale's own apt repository, then:
+
+- Turn on its updater with `sudo tailscale set --auto-update`, since unattended upgrades only updates Debian's packages.
+- Disable key expiry for the board in Tailscale's admin console, so an unattended board doesn't drop off your tailnet.
+- To make the board a peer relay, run `sudo tailscale set --relay-server-port=PORT`, open that UDP port in the firewall, forward it on your router, and add a grant for it in your tailnet policy.
+- To avoid Tailscale's diagnostic log writes to the eMMC, set `TS_NO_LOGS_NO_SUPPORT=true` in `/etc/default/tailscaled`.
+
 ## Security defaults
 
 - SSH is the only service reachable from the network. A default-deny firewall drops all other incoming connections; see "Opening firewall ports" below.
