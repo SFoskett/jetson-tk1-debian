@@ -37,6 +37,26 @@ fi
 ln -sf "/usr/share/zoneinfo/$TK1_TIMEZONE" "$root/etc/localtime"
 echo "$TK1_TIMEZONE" > "$root/etc/timezone"
 
+# Locale. SSH passes the connecting computer's locale to the board, so the
+# image generates one locale, by default the build machine's. C.UTF-8 is
+# built in and needs nothing generated.
+case "$TK1_LOCALE" in
+	C | POSIX | C.UTF-8 | C.utf8)
+		echo "LANG=C.UTF-8" > "$root/etc/default/locale"
+		;;
+	*)
+		locale=$(echo "$TK1_LOCALE" | sed 's/\.utf-\{0,1\}8$/.UTF-8/I')
+		entry=$(awk -v l="$locale" '$1 == l { print; exit }' "$root/usr/share/i18n/SUPPORTED")
+		if [ -z "$entry" ]; then
+			echo "customize.sh: locale $locale is not in Debian's list of supported locales" >&2
+			exit 1
+		fi
+		echo "$entry" > "$root/etc/locale.gen"
+		run locale-gen
+		echo "LANG=$locale" > "$root/etc/default/locale"
+		;;
+esac
+
 if [ -f "$keys" ]; then
 	# With an SSH key, SSH accepts keys only.
 	install -d -m 700 "$root/home/$TK1_USER/.ssh"

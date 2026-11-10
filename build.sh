@@ -18,6 +18,13 @@ if [ "$(id -u)" -ne 0 ]; then
 	echo "build.sh: run as root, for example: sudo $0" >&2
 	exit 1
 fi
+# The locale of the person running the build, which is the default locale
+# for the image (see local.conf.example). sudo passes LANG through; if it is
+# not set, use the build machine's system default.
+host_locale="${LANG:-}"
+if [ -z "$host_locale" ] && [ -f /etc/default/locale ]; then
+	host_locale=$(sed -n 's/^LANG=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' /etc/default/locale | head -1)
+fi
 export LC_ALL=C.UTF-8
 
 # Host tools needed for the build and for the flashing files.
@@ -35,11 +42,16 @@ TK1_USER=tk1
 TK1_PASSWORD_HASH=""
 TK1_SSH_KEYS=""
 TK1_TIMEZONE=UTC
+TK1_LOCALE="${host_locale:-C.UTF-8}"
 if [ -f "$here/local.conf" ]; then
 	. "$here/local.conf"
 fi
 if ! [[ "$TK1_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
 	echo "build.sh: TK1_USER '$TK1_USER' is not a valid username" >&2
+	exit 1
+fi
+if ! [[ "$TK1_LOCALE" =~ ^[A-Za-z0-9_.@-]+$ ]]; then
+	echo "build.sh: TK1_LOCALE '$TK1_LOCALE' does not look like a locale, for example en_US.UTF-8" >&2
 	exit 1
 fi
 if [ -d /usr/share/zoneinfo ] && [ ! -f "/usr/share/zoneinfo/$TK1_TIMEZONE" ]; then
@@ -68,6 +80,7 @@ packages=(
 	nftables
 	unattended-upgrades
 	u-boot-tegra
+	locales
 )
 
 # Refuse to delete a work directory that still has filesystems mounted
@@ -87,6 +100,7 @@ mkdir -p "$work"
 	printf 'TK1_USER=%q\n' "$TK1_USER"
 	printf 'TK1_PASSWORD_HASH=%q\n' "$TK1_PASSWORD_HASH"
 	printf 'TK1_TIMEZONE=%q\n' "$TK1_TIMEZONE"
+	printf 'TK1_LOCALE=%q\n' "$TK1_LOCALE"
 } > "$work/user.conf"
 if [ -n "$TK1_SSH_KEYS" ]; then
 	cp "$TK1_SSH_KEYS" "$work/authorized_keys"

@@ -60,7 +60,7 @@ On older releases, the emulator package may be called `qemu-user-static` instead
 
 ## Building the image
 
-Personalize the build first. Copy `local.conf.example` to `local.conf` and edit it to set your username, password, SSH public key, and time zone. Git ignores `local.conf`, so your settings stay on your computer. Create the password hash with `openssl passwd -6`, and give the full path to your SSH key file, since the build runs as root and `~` would mean root's home directory.
+Personalize the build first. Copy `local.conf.example` to `local.conf` and edit it to set your username, password, SSH public key, time zone, and locale. The locale defaults to the one on the computer running the build. Git ignores `local.conf`, so your settings stay on your computer. Create the password hash with `openssl passwd -6`, and give the full path to your SSH key file, since the build runs as root and `~` would mean root's home directory.
 
 What you set decides how you log in the first time:
 

@@ -18,3 +18,8 @@ TK1_SSH_KEYS=''
 # Time zone for the board, which also sets when automatic reboots for
 # updates happen (04:00 local time). Defaults to UTC.
 TK1_TIMEZONE=UTC
+
+# Locale for the board, such as en_US.UTF-8. Defaults to the locale of the
+# person running the build. SSH passes your computer's locale to the board,
+# so set this if you log in from a computer with a different locale.
+#TK1_LOCALE=en_US.UTF-8
