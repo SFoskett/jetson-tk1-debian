@@ -212,7 +212,9 @@ All incoming connections except SSH are dropped. To run a network service, you m
 tcp dport 3493 accept
 ```
 
-Then apply it with `sudo systemctl reload nftables`.
+Then apply it with `sudo systemctl reload nftables`. The file has commented examples for NUT and for Tailscale's peer relay and direct connections.
+
+The firewall keeps its rules in its own table, named `tk1`, and reloading it replaces only that table. Rules that other software adds for itself, such as Tailscale or Docker, survive a reload. Every table must accept a packet for it to get through, though, so opening a port for a service still means adding it to `/etc/nftables.conf`. Forwarded traffic is dropped too; to route for other devices, for example as a Tailscale subnet router or exit node, allow it in the forward chain, where the file has an example, and enable IP forwarding.
 
 ### Using the GPU
 
