@@ -91,10 +91,10 @@ Tailscale publishes Debian packages for armhf. Install it from Tailscale's own a
 
 ## Security defaults
 
-- SSH is the only service reachable from the network. A default-deny firewall drops all other incoming connections; see "Opening firewall ports" below.
+- SSH is the only service reachable from the network. A default-deny firewall drops all other incoming connections, apart from multicast DNS name lookups; see "Opening firewall ports" below.
 - Root cannot log in, either at the console or over SSH. The default user has sudo access.
 - SSH allows no root logins, limits login attempts, and disables agent, X11, and socket forwarding and tunneling. Local TCP forwarding stays on so the board can serve as an SSH jump host (`ssh -J`).
-- Local-network name discovery (LLMNR and multicast DNS) is turned off.
+- Multicast DNS is on, so other computers on your network can reach the board by its `.local` name, such as `tk1-8e54.local`. It adds no services, only a way to find the board; set `TK1_MDNS=no` in `local.conf` to turn it off. LLMNR, an older Windows-oriented name discovery protocol, stays off.
 - Debian security and stable updates install automatically every day. When an update requires it, such as a new kernel, the board reboots at 04:00 local time.
 - If the system ever hangs, the hardware watchdog reboots the board after 30 seconds.
 
@@ -128,7 +128,7 @@ On older releases, the emulator package may be called `qemu-user-static` instead
 
 ## Building the image
 
-Personalize the build first. Copy `local.conf.example` to `local.conf` and edit it to set your username, password, SSH public key, time zone, and locale. The locale defaults to the one on the computer running the build. Git ignores `local.conf`, so your settings stay on your computer. Create the password hash with `openssl passwd -6`, and give the full path to your SSH key file, since the build runs as root and `~` would mean root's home directory.
+Personalize the build first. Copy `local.conf.example` to `local.conf` and edit it to set your username, password, SSH public key, time zone, locale, and whether the board answers to a `.local` name. The locale defaults to the one on the computer running the build. Git ignores `local.conf`, so your settings stay on your computer. Create the password hash with `openssl passwd -6`, and give the full path to your SSH key file, since the build runs as root and `~` would mean root's home directory.
 
 What you set decides how you log in the first time:
 
@@ -179,7 +179,7 @@ The script uses the newest image in `output/`, or you can give it the path of a 
 
 The script only writes to disks that identify themselves as U-Boot's USB storage device and have the expected size, so it will not touch your computer's own drives or other USB disks. It works on any TK1, whatever was installed before, including NVIDIA's original software and images flashed with the other methods.
 
-On its first boot, the board names itself after the last two bytes of its Ethernet MAC address, such as `tk1-8e54`, grows its filesystem to fill the eMMC, and creates its own SSH host keys. It identifies itself to your DHCP server by its MAC address, so it keeps the same IP address when reflashed, and DHCP reservations by MAC address work. Find its address in your router's DHCP client list, or try connecting by its hostname.
+On its first boot, the board names itself after the last two bytes of its Ethernet MAC address, such as `tk1-8e54`, grows its filesystem to fill the eMMC, and creates its own SSH host keys. It identifies itself to your DHCP server by its MAC address, so it keeps the same IP address when reflashed, and DHCP reservations by MAC address work. Connect to it by its `.local` name, such as `ssh tk1@tk1-8e54.local`, or find its address in your router's DHCP client list.
 
 ### Reflashing a running board remotely
 

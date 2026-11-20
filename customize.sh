@@ -57,6 +57,20 @@ case "$TK1_LOCALE" in
 		;;
 esac
 
+# Multicast DNS, which lets other computers reach the board by its .local
+# name, such as tk1-8e54.local. resolved answers mDNS only on interfaces
+# where networkd also enables it, and the firewall must accept UDP 5353.
+mkdir -p "$root/etc/systemd/network/20-wired.network.d"
+if [ "$TK1_MDNS" = yes ]; then
+	printf '[Resolve]\nMulticastDNS=yes\n' > "$root/etc/systemd/resolved.conf.d/tk1-mdns.conf"
+	printf '[Network]\nMulticastDNS=yes\n' > "$root/etc/systemd/network/20-wired.network.d/mdns.conf"
+	sed -i 's|^\t\ttcp dport 22 accept$|\t\ttcp dport 22 accept\n\n\t\t# Multicast DNS, so the board answers to its .local name.\n\t\tudp dport 5353 accept|' "$root/etc/nftables.conf"
+	grep -q 'udp dport 5353 accept' "$root/etc/nftables.conf" || { echo "customize.sh: could not add the mDNS firewall rule" >&2; exit 1; }
+else
+	printf '[Resolve]\nMulticastDNS=no\n' > "$root/etc/systemd/resolved.conf.d/tk1-mdns.conf"
+	printf '[Network]\nMulticastDNS=no\n' > "$root/etc/systemd/network/20-wired.network.d/mdns.conf"
+fi
+
 if [ -f "$keys" ]; then
 	# With an SSH key, SSH accepts keys only.
 	install -d -m 700 "$root/home/$TK1_USER/.ssh"

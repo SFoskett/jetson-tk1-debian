@@ -42,12 +42,17 @@ TK1_USER=tk1
 TK1_PASSWORD_HASH=""
 TK1_SSH_KEYS=""
 TK1_TIMEZONE=UTC
+TK1_MDNS=yes
 TK1_LOCALE="${host_locale:-C.UTF-8}"
 if [ -f "$here/local.conf" ]; then
 	. "$here/local.conf"
 fi
 if ! [[ "$TK1_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
 	echo "build.sh: TK1_USER '$TK1_USER' is not a valid username" >&2
+	exit 1
+fi
+if [ "$TK1_MDNS" != yes ] && [ "$TK1_MDNS" != no ]; then
+	echo "build.sh: TK1_MDNS must be yes or no" >&2
 	exit 1
 fi
 if ! [[ "$TK1_LOCALE" =~ ^[A-Za-z0-9_.@-]+$ ]]; then
@@ -101,6 +106,7 @@ mkdir -p "$work"
 	printf 'TK1_PASSWORD_HASH=%q\n' "$TK1_PASSWORD_HASH"
 	printf 'TK1_TIMEZONE=%q\n' "$TK1_TIMEZONE"
 	printf 'TK1_LOCALE=%q\n' "$TK1_LOCALE"
+	printf 'TK1_MDNS=%q\n' "$TK1_MDNS"
 } > "$work/user.conf"
 if [ -n "$TK1_SSH_KEYS" ]; then
 	cp "$TK1_SSH_KEYS" "$work/authorized_keys"

@@ -23,3 +23,8 @@ TK1_TIMEZONE=UTC
 # person running the build. SSH passes your computer's locale to the board,
 # so set this if you log in from a computer with a different locale.
 #TK1_LOCALE=en_US.UTF-8
+
+# Multicast DNS, so other computers on your network can reach the board by
+# name, such as tk1-8e54.local. Set to no to turn it off, which keeps the
+# board from answering name queries from the local network.
+TK1_MDNS=yes
