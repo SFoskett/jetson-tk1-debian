@@ -35,6 +35,23 @@ for tool in mmdebstrap cbootimage fdtput python3 zstd; do
 	fi
 done
 
+# The build runs ARM programs inside the new system through QEMU, and the
+# kernel must load QEMU with binfmt_misc's F (fix binary) flag so it still
+# works there. Without the flag, the build fails partway with a confusing
+# "failed to run command 'dpkg': No such file or directory".
+binfmt=/proc/sys/fs/binfmt_misc/qemu-arm
+if ! grep -qx enabled "$binfmt" 2> /dev/null || ! grep -q '^flags:.*F' "$binfmt"; then
+	cat >&2 <<EOM
+build.sh: ARM emulation is not set up the way the build needs.
+QEMU must be registered for ARM programs with the F (fix binary) flag,
+shown on the flags line of $binfmt. Currently:
+    $(grep -h '^flags' "$binfmt" 2> /dev/null || echo "not registered")
+On Ubuntu 24.04, and likely other older releases, install qemu-user-static,
+which registers it with the F flag. See the README's requirements.
+EOM
+	exit 1
+fi
+
 # Personal settings for the default user, from local.conf if it exists.
 # See local.conf.example. Without it, the image uses tk1/tk1 with SSH off
 # until that password is changed at the console.

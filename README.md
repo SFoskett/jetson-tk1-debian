@@ -111,7 +111,7 @@ The eMMC in these boards is over a decade old, and if it wears out the board is 
 
 ## Requirements
 
-- An x86 Linux computer to build and flash with. These instructions were tested on Ubuntu.
+- An x86 Linux computer running Debian or Ubuntu to build and flash with. These instructions were tested on Ubuntu 24.04 and newer Ubuntu releases. Other distributions may work if they provide mmdebstrap, Debian's archive keyring, cbootimage, tegrarcm, and QEMU emulation for ARM, but they have not been tested.
 - A micro-USB cable from that computer to the TK1's micro-USB port.
 - Network access for the TK1 through its Ethernet port.
 
@@ -124,7 +124,9 @@ sudo apt install mmdebstrap qemu-user-binfmt debian-archive-keyring zstd git \
 	cbootimage device-tree-compiler python3 tegrarcm gdisk
 ```
 
-On older releases, the emulator package may be called `qemu-user-static` instead.
+The build runs ARM programs through QEMU, which must be registered with the kernel using the F flag. On Ubuntu 24.04, `qemu-user-binfmt` registers it without that flag, so install `qemu-user-static` instead; if the build reports a missing F flag on another release, `qemu-user-static` is likely the fix there too. To check, run `grep flags /proc/sys/fs/binfmt_misc/qemu-arm`, whose output must include an F, such as `flags: POF`. `build.sh` checks this before it starts.
+
+A computer used only for flashing, not building, needs much less. See "Flashing from another computer" below.
 
 ## Building the image
 
@@ -179,7 +181,27 @@ The script uses the newest image in `output/`, or you can give it the path of a 
 
 The script only writes to disks that identify themselves as U-Boot's USB storage device and have the expected size, so it will not touch your computer's own drives or other USB disks. It works on any TK1, whatever was installed before, including NVIDIA's original software and images flashed with the other methods.
 
-On its first boot, the board names itself after the last two bytes of its Ethernet MAC address, such as `tk1-8e54`, grows its filesystem to fill the eMMC, and creates its own SSH host keys. It identifies itself to your DHCP server by its MAC address, so it keeps the same IP address when reflashed, and DHCP reservations by MAC address work. Connect to it by its `.local` name, such as `ssh tk1@tk1-8e54.local`, or find its address in your router's DHCP client list.
+On its first boot, the board names itself after the last two bytes of its Ethernet MAC address, such as `tk1-8e54`, grows its filesystem to fill the eMMC, and creates its own SSH host keys. It identifies itself to your DHCP server by its MAC address, so it keeps the same IP address when reflashed, and DHCP reservations by MAC address work. Connect to it by its `.local` name, such as `ssh tk1@tk1-8e54.local`.
+
+To learn a new board's name, look for NVIDIA's `00:04:4b` MAC address prefix in your computer's table of nearby network devices, once the board has been up for a minute or two:
+
+```
+ip neigh | grep -i 00:04:4b       # Linux
+arp -a | grep -i '0:4:4b'         # macOS, which drops leading zeros
+arp -a | findstr 00-04-4b         # Windows
+```
+
+The last two bytes of the address give the name, so `00:04:4b:80:8e:54` belongs to `tk1-8e54`. If nothing appears, your computer has not exchanged traffic with the board yet, and your router's DHCP client list will show it instead.
+
+### Flashing from another computer
+
+The computer that flashes a board does not have to be the one that built the image. Copy the project directory, including `output/`, to the other computer, and install just the flashing tools:
+
+```
+sudo apt install tegrarcm gdisk parted zstd eject
+```
+
+Then run `sudo ./flash-tk1.sh` there as usual. The result is identical to flashing from the build machine.
 
 ### Reflashing a running board remotely
 
